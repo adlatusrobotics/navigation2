@@ -64,6 +64,7 @@ void Optimizer::getParams()
   auto getParam = parameters_handler_->getParamGetter(name_);
   auto getParentParam = parameters_handler_->getParamGetter("");
   getParam(s.model_dt, "model_dt", 0.05f);
+  getParam(s.deadtime, "deadtime", 0.05f);
   getParam(s.time_steps, "time_steps", 56);
   getParam(s.batch_size, "batch_size", 1000);
   getParam(s.iteration_count, "iteration_count", 1);
@@ -114,22 +115,10 @@ void Optimizer::getParams()
 void Optimizer::setOffset(double controller_frequency)
 {
   const double controller_period = 1.0 / controller_frequency;
-  constexpr double eps = 1e-6;
-
-  if ((controller_period + eps) < settings_.model_dt) {
-    RCLCPP_WARN(
-      logger_,
-      "Controller period is less then model dt, consider setting it equal");
-  } else if (abs(controller_period - settings_.model_dt) < eps) {
-    RCLCPP_INFO(
-      logger_,
-      "Controller period is equal to model dt. Control sequence "
-      "shifting is ON");
-    settings_.shift_control_sequence = true;
-  } else {
-    throw nav2_core::ControllerException(
-            "Controller period more then model dt, set it equal to model dt");
-  }
+  settings_.shift_control_sequence = (unsigned) (
+    controller_period / settings_.model_dt + 0.5);
+  settings_.control_lookahead_idx = (unsigned) (
+    settings_.deadtime / settings_.model_dt + 0.5);
 }
 
 void Optimizer::reset(bool reset_dynamic_speed_limits)
@@ -233,14 +222,16 @@ void Optimizer::prepare(
 void Optimizer::shiftControlSequence()
 {
   auto size = control_sequence_.vx.size();
-  utils::shiftColumnsByOnePlace(control_sequence_.vx, -1);
-  utils::shiftColumnsByOnePlace(control_sequence_.wz, -1);
-  control_sequence_.vx(size - 1) = control_sequence_.vx(size - 2);
-  control_sequence_.wz(size - 1) = control_sequence_.wz(size - 2);
+  for (unsigned int i = 0; i < settings_.shift_control_sequence; ++i) {
+    utils::shiftColumnsByOnePlace(control_sequence_.vx, -1);
+    utils::shiftColumnsByOnePlace(control_sequence_.wz, -1);
+    control_sequence_.vx(size - 1) = control_sequence_.vx(size - 2);
+    control_sequence_.wz(size - 1) = control_sequence_.wz(size - 2);
 
-  if (isHolonomic()) {
-    utils::shiftColumnsByOnePlace(control_sequence_.vy, -1);
-    control_sequence_.vy(size - 1) = control_sequence_.vy(size - 2);
+    if (isHolonomic()) {
+      utils::shiftColumnsByOnePlace(control_sequence_.vy, -1);
+      control_sequence_.vy(size - 1) = control_sequence_.vy(size - 2);
+    }
   }
 }
 
@@ -482,7 +473,7 @@ void Optimizer::updateControlSequence()
 geometry_msgs::msg::TwistStamped Optimizer::getControlFromSequenceAsTwist(
   const builtin_interfaces::msg::Time & stamp)
 {
-  unsigned int offset = settings_.shift_control_sequence ? 1 : 0;
+  unsigned int offset = settings_.control_lookahead_idx;
 
   auto vx = control_sequence_.vx(offset);
   auto wz = control_sequence_.wz(offset);

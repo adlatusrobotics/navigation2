@@ -31,12 +31,14 @@ struct OptimizerSettings
   models::ControlConstraints constraints{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   models::SamplingStd sampling_std{0.0f, 0.0f, 0.0f};
   float model_dt{0.0f};
+  float deadtime{0.0f};
   float temperature{0.0f};
   float gamma{0.0f};
   unsigned int batch_size{0u};
   unsigned int time_steps{0u};
   unsigned int iteration_count{0u};
-  bool shift_control_sequence{false};
+  unsigned int shift_control_sequence{0u};
+  unsigned int control_lookahead_idx{0u};
   size_t retry_attempt_limit{0};
 };
 
