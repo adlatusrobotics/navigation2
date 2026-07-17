@@ -505,8 +505,8 @@ void ControllerServer::computeControl()
 
       auto cycle_duration = this->now() - start_time;
       if (!loop_rate.sleep()) {
-        RCLCPP_WARN(
-          get_logger(),
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 1000,
           "Control loop missed its desired rate of %.4f Hz. Current loop rate is %.4f Hz.",
           controller_frequency_, 1 / cycle_duration.seconds());
       }

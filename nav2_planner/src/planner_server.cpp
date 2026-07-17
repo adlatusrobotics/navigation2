@@ -518,7 +518,7 @@ PlannerServer::computePlan()
   // Initialize the ComputePathToPose goal and result
   auto goal = action_server_pose_->get_current_goal();
   auto result = std::make_shared<ActionToPose::Result>();
-  RCLCPP_INFO(get_logger(), "Computing path to goal.");
+  RCLCPP_DEBUG(get_logger(), "Computing path to goal.");
 
   geometry_msgs::msg::PoseStamped start;
 
