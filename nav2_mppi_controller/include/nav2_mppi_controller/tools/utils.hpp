@@ -599,7 +599,7 @@ inline unsigned int findFirstPathInversion(nav_msgs::msg::Path & path)
 
   // Iterating through the path to determine the position of the path inversion
   for (unsigned int idx = 1; idx < path.poses.size() - 1; ++idx) {
-    // We have two vectors for the dot product OA and AB. Determining the vectors.
+    // We have two position-difference vectors OA and AB. Determining the vectors.
     float oa_x = path.poses[idx].pose.position.x -
       path.poses[idx - 1].pose.position.x;
     float oa_y = path.poses[idx].pose.position.y -
@@ -609,9 +609,20 @@ inline unsigned int findFirstPathInversion(nav_msgs::msg::Path & path)
     float ab_y = path.poses[idx + 1].pose.position.y -
       path.poses[idx].pose.position.y;
 
-    // Checking for the existence of cusp, in the path, using the dot product.
-    float dot_product = (oa_x * ab_x) + (oa_y * ab_y);
-    if (dot_product < 0.0f) {
+    // heading unit vector at point O.
+    const float o_yaw = tf2::getYaw(path.poses[idx - 1].pose.orientation);
+    const float o_heading_x = std::cos(o_yaw);
+    const float o_heading_y = std::sin(o_yaw);
+    // heading unit vector at point B.
+    const float b_yaw = tf2::getYaw(path.poses[idx + 1].pose.orientation);
+    const float b_heading_x = std::cos(b_yaw);
+    const float b_heading_y = std::sin(b_yaw);
+
+    // signed projection of each segment onto the heading indicates forward (> 0)
+    // or reverse (< 0) travel. differing signs mark a direction inversion (cusp).
+    const float proj_oa = (oa_x * o_heading_x) + (oa_y * o_heading_y);
+    const float proj_ab = (ab_x * b_heading_x) + (ab_y * b_heading_y);
+    if (proj_oa * proj_ab < 0.0f) {
       return idx + 1;
     }
   }
